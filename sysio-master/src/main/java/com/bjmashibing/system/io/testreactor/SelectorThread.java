@@ -19,7 +19,7 @@ public class SelectorThread  extends  ThreadLocal<LinkedBlockingQueue<Channel>> 
 
 
 
-    Selector  selector = null;
+    Selector selector = null;
 //    LinkedBlockingQueue<Channel> lbq = new LinkedBlockingQueue<>();
     LinkedBlockingQueue<Channel> lbq = get();  //lbq  在接口或者类中是固定使用方式逻辑写死了。你需要是lbq每个线程持有自己的独立对象
 
@@ -33,10 +33,8 @@ public class SelectorThread  extends  ThreadLocal<LinkedBlockingQueue<Channel>> 
     SelectorThread(SelectorThreadGroup stg){
         try {
 
-
             this.stg = stg;
             selector = Selector.open();
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -54,8 +52,10 @@ public class SelectorThread  extends  ThreadLocal<LinkedBlockingQueue<Channel>> 
                 int nums = selector.select();  //阻塞  wakeup()
 //                Thread.sleep(1000);  //这绝对不是解决方案，我只是给你演示
 //                System.out.println(Thread.currentThread().getName()+"   :  after select...." + selector.keys().size());
-
+                //my 当select被打断的时候第二步是不执行的，执行的是第三步
                 //2,处理selectkeys
+                //my 处理自己现有的任务
+                //my 现有的任务是select的是否发现有任务
                 if(nums>0){
                     Set<SelectionKey> keys = selector.selectedKeys();
                     Iterator<SelectionKey> iter = keys.iterator();
@@ -70,15 +70,16 @@ public class SelectorThread  extends  ThreadLocal<LinkedBlockingQueue<Channel>> 
 
                         }
 
-
-
                     }
 
                 }
                 //3,处理一些task :  listen  client
+                //my task其实就是通过阻塞队列传过来的，也可以说是Boss传给Worker的任务，也就是boss给加任务了
+                //my boss给任务的时候是通过打断或者说是唤醒给的任务
                 if(!lbq.isEmpty()){   //队列是个啥东西啊？ 堆里的对象，线程的栈是独立，堆是共享的
                     //只有方法的逻辑，本地变量是线程隔离的
                     Channel c = lbq.take();
+                    //my boss给的任务,当然是注册到自己线程的selector上
                     if(c instanceof ServerSocketChannel){
                         ServerSocketChannel server = (ServerSocketChannel) c;
                         server.register(selector,SelectionKey.OP_ACCEPT);
@@ -87,6 +88,7 @@ public class SelectorThread  extends  ThreadLocal<LinkedBlockingQueue<Channel>> 
                         SocketChannel client = (SocketChannel) c;
                         ByteBuffer buffer = ByteBuffer.allocateDirect(4096);
                         client.register(selector, SelectionKey.OP_READ, buffer);
+                        //my 注册读的时候需要给一个缓冲区,这里使用的是堆外的缓存
                         System.out.println(Thread.currentThread().getName()+" register client: " + client.getRemoteAddress());
 
                     }
@@ -126,7 +128,7 @@ public class SelectorThread  extends  ThreadLocal<LinkedBlockingQueue<Channel>> 
                     break;
                 }else if(num < 0 ){
                     //客户端断开了
-                    System.out.println("client: " + client.getRemoteAddress()+"closed......");
+                    System.out.println("client: " + client.getRemoteAddress() + "closed......");
                     key.cancel();
                     break;
                 }
@@ -138,14 +140,11 @@ public class SelectorThread  extends  ThreadLocal<LinkedBlockingQueue<Channel>> 
 
     private void acceptHandler(SelectionKey key) {
         System.out.println(Thread.currentThread().getName()+"   acceptHandler......");
-
         ServerSocketChannel server = (ServerSocketChannel)key.channel();
         try {
             SocketChannel client = server.accept();
             client.configureBlocking(false);
-
             //choose a selector  and  register!!
-
             stg.nextSelectorV3(client);
 //            stg.nextSelectorV2(client);
 

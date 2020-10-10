@@ -20,9 +20,12 @@ public class SelectorThreadGroup {  //天生都是boss
 
     SelectorThreadGroup  stg =  this;
 
+    /**
+     * my 设置boss线程的工作线程
+     * @param stg
+     */
     public void setWorker(SelectorThreadGroup  stg){
         this.stg =  stg;
-
     }
 
     SelectorThreadGroup(int num){
@@ -36,8 +39,10 @@ public class SelectorThreadGroup {  //天生都是boss
 
     }
 
-
-
+    /**
+     * my 给boss线程注册serverSocket
+     * @param port
+     */
     public void bind(int port) {
 
         try {
@@ -54,6 +59,11 @@ public class SelectorThreadGroup {  //天生都是boss
 
     }
 
+    /**
+     * my 每次boss分配任务的入口
+     * my 第一个boss是网卡给过来的Channel或者Main线程给过来的Channel
+     * @param c
+     */
     public void nextSelectorV3(Channel c) {
 
         try {
@@ -74,7 +84,6 @@ public class SelectorThreadGroup {  //天生都是boss
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-
 
     }
 
@@ -98,9 +107,11 @@ public class SelectorThreadGroup {  //天生都是boss
                 e.printStackTrace();
             }
 
-
     }
     public void nextSelector(Channel c) {
+
+        //把
+
         SelectorThread st = next();  //在 main线程种，取到堆里的selectorThread对象
 
         //1,通过队列传递数据 消息
@@ -137,6 +148,7 @@ public class SelectorThreadGroup {  //天生都是boss
         int index = xid.incrementAndGet() % sts.length;  //轮询就会很尴尬，倾斜
         return sts[index];
     }
+
     private SelectorThread nextV2() {
         int index = xid.incrementAndGet() % (sts.length-1);  //轮询就会很尴尬，倾斜
         return sts[index+1];

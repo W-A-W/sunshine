@@ -71,8 +71,6 @@ class MyInbound extends ChannelInboundHandlerAdapter{
         for (String str : strs) {
             System.out.print("触发的命令："+str+"...");
         }
-
-
         ctx.write(msg);
 
     }
